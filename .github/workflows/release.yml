@@ -28,25 +28,25 @@ jobs:
           - os: ubuntu-latest
             GOOS: linux
             GOARCH: arm64
-          # - os: ubuntu-latest
-          #   GOOS: linux
-          #   GOARCH: arm64
     runs-on: ${{ matrix.build.os }}
     env:
       APP_NAME: GUI.for.SingBox
       ZIP_FILE: GUI.for.SingBox-${{ matrix.build.GOOS }}-${{ matrix.build.GOARCH }}.zip
     steps:
       - uses: actions/checkout@v4
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version-file: ./go.mod
       - run: go version
+
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 9
       - run: pnpm -v
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -54,6 +54,7 @@ jobs:
           cache: "pnpm"
           cache-dependency-path: frontend/pnpm-lock.yaml
       - run: node -v
+
       - name: Install dependencies
         run: |
           cd frontend && pnpm install
@@ -65,6 +66,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
+
+      - name: Install ARM64 Cross Compiler # 🛠️ 提前安装（位置调整）
+        if: runner.os == 'Linux' && matrix.build.GOARCH == 'arm64'
+        run: |
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
 
       # Hide dock bar icon: macOS
       - name: Update system and dependencies
@@ -81,14 +87,18 @@ jobs:
         env:
           GOOS: ${{ matrix.build.GOOS }}
           GOARCH: ${{ matrix.build.GOARCH }}
-        run: ~/go/bin/wails build -m -s -trimpath -skipbindings -devtools -tags webkit2_41 -o ${{ env.APP_NAME }}.exe
+        run: |
+          if [ "${{ matrix.build.GOARCH }}" = "arm64" ] && [ "${{ matrix.build.GOOS }}" = "linux" ]; then
+            CC=aarch64-linux-gnu-gcc ~/go/bin/wails build -m -s -trimpath -skipbindings -devtools -tags webkit2_41 -o ${{ env.APP_NAME }}.exe # 🛠️ 针对 linux/arm64 手动指定 CC
+          else
+            ~/go/bin/wails build -m -s -trimpath -skipbindings -devtools -tags webkit2_41 -o ${{ env.APP_NAME }}.exe
+          fi
 
       # Compress: macOS
       - name: Create a compressed file for macOS
         if: runner.os == 'macOS'
         run: |
           cd ./build/bin
-          # The compiled product name of macos is always "${{ env.APP_NAME }}.app"
           zip -q -r ${{ env.ZIP_FILE }} ${{ env.APP_NAME }}.app
 
       # Compress: Windows
@@ -105,18 +115,6 @@ jobs:
           cd ./build/bin
           mv ${{ env.APP_NAME }}.exe ${{ env.APP_NAME }}
           zip ${{ env.ZIP_FILE }} ${{ env.APP_NAME }}
-          
-      - name: Install ARM64 Cross Compiler # 🛠️ 新增：专门安装交叉编译工具链
-        if: runner.os == 'Linux' && matrix.build.GOARCH == 'arm64'
-        run: |
-          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-          
-      # Artifact
-      # - name: Upload Artifact ${{ env.ZIP_FILE }}
-      #   uses: actions/upload-artifact@v3
-      #   with:
-      #     name: ${{ env.ZIP_FILE }}
-      #     path: ./build/bin/${{ env.ZIP_FILE }}
 
       - name: Create Release and Upload Assets
         uses: svenstaro/upload-release-action@v2
