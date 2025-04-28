@@ -105,7 +105,12 @@ jobs:
           cd ./build/bin
           mv ${{ env.APP_NAME }}.exe ${{ env.APP_NAME }}
           zip ${{ env.ZIP_FILE }} ${{ env.APP_NAME }}
-
+          
+      - name: Install ARM64 Cross Compiler # 🛠️ 新增：专门安装交叉编译工具链
+        if: runner.os == 'Linux' && matrix.build.GOARCH == 'arm64'
+        run: |
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+          
       # Artifact
       # - name: Upload Artifact ${{ env.ZIP_FILE }}
       #   uses: actions/upload-artifact@v3
