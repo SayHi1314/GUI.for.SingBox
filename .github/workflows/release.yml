@@ -1,9 +1,7 @@
 name: Build GUI.for.SingBox
 
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_dispatch:
 
 jobs:
   Build:
